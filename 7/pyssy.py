@@ -18,6 +18,10 @@ Flask        Pyssy使用Flask作爲網頁服務框架。
 pylibmc      託管在SAE上的Pyssy使用pylibmc訪問SAE的memcached服務。
 Redis-py     獨立運行的Pyssy使用Redis作爲memcached服務的替代。
 ==========  ======================================================
+
+----------
+模块
+----------
 '''
 
 try:
@@ -81,13 +85,9 @@ def datetime2str(dt):
         return None
     return dt.isoformat()
 
-
-
 def fetch(url, timeout):
-    '''
-    Use Memcached in SAE or Redis locally
-    Redis only support String, so convert before/after store
-    '''
+    #Use Memcached in SAE or Redis locally
+    #Redis only support String, so convert before/after store
     now = datetime2str(str2datetime(datetime2str(datetime.datetime.now())))
     if timeout > 0 and hasattr(g,'mc'):
         result = g.mc.get(url.encode('ascii'))
@@ -115,20 +115,14 @@ def before_request():
     elif REDIS_MC:
         g.mc = StrictRedis()
     
-    
-
 @app.teardown_request
 def teardown_request(exception):
     if hasattr(g, 'db'): g.db.close()
-
-
 
 @app.route('/')
 def hello():
     html= u"""
         <p>欢迎使用pyssy工具。</p>
-        <p>请将水源的网址中http://bbs.sjtu.edu.cn/ 替换为 http://pyssy.sinasae.com/&lt;service&gt;/ </p>
-        <p>目前支持的service有： tree —— 树状主题列表</p>
         """ 
     return render_template('template.html',body=html)
 
@@ -164,7 +158,8 @@ class api(object):
             if 'pretty' in request.values:
                 pretty = int(request.values['pretty']) == 1
             else:
-                pretty = False
+                #pretty = False
+                pretty = True
             if 'callback' in request.values:
                 callback = request.values['callback']
             else:
@@ -253,8 +248,28 @@ class api(object):
                         headers=headers,
                         content_type='application/json; charset=utf-8')
         return wrap
+
+# -----Article------        
 @app.route(u'/api/article/<board>/<file_>', methods=[u'GET', u'POST'])
 def rest_article(board, file_):
+    '''
+    @/api/article/<boardName>/<fileName>
+    
+    读取单篇文章,返回以下对象::
+    
+        results = {	
+                    board: "ACMICPC", 
+                    body_title: "饮水思源 - 文章阅读", 
+                    content: {...}, 
+                    content_lines: [...],
+                    file: "M.1353674155.A",
+                    file_id: 1353674155,
+                    links: [],
+                    page_title: "",
+                    reid: 1353601828,
+                    url: "bbscon?board=ACMICPC&file=M.1353674155.A"
+                    }
+    '''
     ext = file_[file_.rindex(u'.')+1:]
     if ext in [u'json', u'xml', u'jsonp']:
         format = ext
@@ -264,27 +279,6 @@ def rest_article(board, file_):
     
     url = u'bbscon?board=%s&file=%s'%(board, file_)
     return article(url=url, format=format)
-    
-@app.route(u'/api/article', methods=[u'GET', u'POST'])
-def api_article():
-    if 'url' in request.values:
-        url = request.values[u'url']
-    else:
-        file_ = request.values[u'file']
-        board = request.values[u'board']
-        url = u'bbscon?board=%s&file=%s'%(board, file_)
-
-    url = url[url.rfind(u'/') + 1:]
-    return article(url=url)
-
-@app.route('/article/<path:url>', methods=['GET', 'POST'])
-@app.route('/article', methods=['GET', 'POST'])
-def url_article(url):
-    url = request.url
-    
-    url = url[url.rfind(u'/') + 1:]
-    return article(url=url)
-
 @api(16)
 def article(soup):
     result = {}
@@ -395,36 +389,33 @@ def article(soup):
     }
 
     return (result, xml_list_names)
-@app.route(u'/api/board', methods=[u'GET', u'POST'])
-def api_board():
-    if 'url' in request.values:
-        url = request.values[u'url']
-    else:
-        board_ = request.values[u'board']
-        if 'page' in request.values:
-            page_str = request.values[u'page']
-            page_re = re.findall('[0-9]+',page_str)
-            if len(page_re) > 0:
-                page = int(page_re[0])
-                url = u'bbsdoc?board=%s&page=%d'%(board_, page)
-            else:
-                page = 'latest'
-                url = u'bbsdoc?board=%s'%(board_)
-        else:
-            page = 'latest'
-            url = u'bbsdoc?board=%s'%(board_)
+
+# ------Articles----
+@app.route('/api/articles', methods=['GET', 'POST'])
+@app.route('/api/articles/<b>', methods=['GET', 'POST'])
+def rest_board(b='Script'):
+    '''
+    @/api/articles/<boardName>[?page=int]
     
-    return board(url=url)
-
-@app.route(u'/board/<path:url>', methods=[u'GET', u'POST'])
-@app.route(u'/board', methods=[u'GET', u'POST'])
-def url_board(url):
-    url = request.url
-    url = url[url.rfind(u'/') + 1:]
-    return board(url=url)
-
-@app.route('/api/board/<b>', methods=['GET', 'POST'])
-def rest_board(b):
+    读取board里的帖子,返回以下对象：::
+    
+        results = { 
+                    board: "boardName",
+                    title: "Script(脚本语言)", 
+                    chinese_title: "脚本语言",
+                    district: {char: 3, name: "3区"},
+                    has_next_page: false || true, 
+                    has_prev_page: true || true, 
+                    other_tables: [], 
+                    page: 397, 
+                    up_links: [],
+                    down_links: [],
+                    wiki: "wiki",
+                    friend_links: [...],
+                    fixed_articles: [{...}],
+                    articles: [{...}]
+        }
+    '''
     if u'.' in b:
         ext = b[b.rindex(u'.')+1:]
         if ext in [u'json', u'xml', u'jsonp']:
@@ -434,6 +425,7 @@ def rest_board(b):
             format = 'json'
     else:
         format = 'json'
+
     board_ = b
     if 'page' in request.values:
         page_str = request.values[u'page']
@@ -448,7 +440,7 @@ def rest_board(b):
         page = 'latest'
         url = u'bbsdoc?board=%s'%(board_)
     return board(url=url)
-@api(2)
+@api(200)
 def board(soup):
     result = {}
     
@@ -547,6 +539,7 @@ def board(soup):
             u'words_str': words_str,
             u'words' : words,
             u'cannot_re': cannot_re,
+            u'api_link': "/api/article/"+result[u'board']+"/"+file_,
         }
         
         font = article[u'id'](u'font') 
@@ -601,38 +594,34 @@ def board(soup):
               }
     return (result, xml_map)
 
-
-@app.route(u'/api/thread/<board>/<reid>', methods=[u'GET', u'POST'])
+# -----Topic--------
+@app.route(u'/api/topic/<board>/<reid>', methods=[u'GET', u'POST'])
 def rest_thread(board, reid):
-    ext = reid[reid.rindex(u'.')+1:]
-    if ext in [u'json', u'xml', u'jsonp']:
-        format = ext
-        reid = reid[:reid.rindex(u'.')]
+    '''
+    @//api/topic/<board>/<reid> ##目前只返回json对象
+    
+	读取主题的所有讨论，返回以下对象：::
+	
+		results = {
+                    articles: [{}],
+                    bbstcon_link: "",
+                    board: "boardName",
+                    board_link: "bbsdoc?board=PPPerson", 
+                    count: 3, 
+                    page_title: "饮水思源 - 同主题查找", 
+                    topic: "yamamoto itsuka"
+		}
+	'''
+    if reid.rfind(u'.'):
+        ext = reid[reid.rfind(u'.')+1:]
+        if ext in [u'json', u'xml', u'jsonp']:
+            format = ext
+            reid = reid[:reid.rindex(u'.')]
     else:
         format = 'json'
-
+    
     url = u'bbstfind0?board=%s&reid=%s'%(board, reid)
     return thread(url=url)
-    
-@app.route('/thread/<path:url>', methods=['GET', 'POST'])
-@app.route('/thread', methods=['GET', 'POST'])
-def url_thread(url):
-    url = request.url
-
-    url = url[url.rfind(u'/') + 1:]
-    return thread(url=url)
-
-@app.route(u'/api/thread', methods=[u'GET', u'POST'])
-def api_thread():
-    if 'url' in request.values:
-        url = request.values[u'url']
-    else:
-        reid = request.values[u'reid']
-        board = request.values[u'board']
-        url = u'bbstfind0?board=%s&reid=%s'%(board, reid)
-    url = url[url.rfind(u'/') + 1:]
-    return thread(url=url)
-
 @api(2)
 def thread(soup):
     result = {}
@@ -665,19 +654,176 @@ def thread(soup):
             u'link': link,
             u'board': board,
             u'file': file_,
+            u'api_link': "/api/article/"+board+"/"+file_,
         }
         result['articles'].append(art)
     result[u'count'] = int(re.findall(u'共找到 ([0-9]+) 篇',center[6])[0])
     result[u'board_link'] = center[7][u'href']
     result[u'bbstcon_link'] = center[9][u'href']
+    return (result,{'datetime_tuple':'int','articles':'article'})
+
+# -----Topics--------
+@app.route(u'/api/topics', methods=[u'GET', u'POST'])
+@app.route(u'/api/topics/<board>', methods=[u'GET', u'POST'])
+def rest_topics(board=''):
+    '''
+    @/api/topics
+    
+    读取bbs首页十大主题列表
+    
+    @/api/topics/<board>
+    
+    读取版块最新主题列表
+    '''
+    if board:
+        url = u'bbstdoc,board,%s.html'%(board)
+        return topics(url = url)
+    else:
+        url = u'php/bbsindex.html'
+        return topics(url = url)
+@api(60)
+def topics(soup):
+    tables = soup.findAll('table')
+    results = {}
+    if soup.center:
+        #bbstdoc页面
+        trs = tables[0].findAll('tr')[1:]
+        pageLink = tables[0].nextSibling.nextSibling.nextSibling #第一个翻页链接，除非位于第一页时，链接为下一页，其余情况均为上一页
+        boardInfo = tables[0].previousSibling.previousSibling.previousSibling #'] 文章4365, 主题2467个'
+        
+        results[u'TotalTopics'] = re.findall('\d+',unicode(boardInfo))[1]
+        results[u'topics'] = []        
+        for i in range(len(trs)):
+            anchors = trs[i].findAll('a')
+            tds = trs[i].findAll('td')
+            if not anchors[1].string:
+                title = re.sub('<.*?>', '', str(tds[4].contents[0])).decode('utf-8')
+                #print type(t.decode('utf-8'))
+                #title = 'None'
+            else:
+                title = anchors[1].string
+                
+            if re.match('\d+', str(tds[0].contents[0])):
+                id = tds[0].contents[0]
+            else:
+                id = 0
+            
+            if re.match('bbstcon',str(anchors[1]['href'])):
+                board = re.findall('bbstcon,board,(.*?),reid,(\d+)\.html',str(anchors[1]['href']))[0][0]           
+                reid = re.findall('bbstcon,board,(.*?),reid,(\d+)\.html',str(anchors[1]['href']))[0][1]
+            elif re.match('bbstopcon',str(anchors[1]['href'])):
+                print re.findall('board=(.*)&file=.*?(\d+)',str(anchors[1]['href']))
+                board = re.findall('board=(.*)&file=.*?(\d+)',str(anchors[1]['href']))[0][0]
+                reid = re.findall('board=(.*)&file=.*?(\d+)',str(anchors[1]['href']))[0][1]
+            
+            status = tds[1].string
+            author = tds[2].contents[0].string
+            date = tds[3].string
+
+            reply = re.findall('\((\d+)', unicode(tds[4].contents[1]))
+
+            if len(reply):
+                reply = reply[0]
+            else:
+                reply = None
+            results['topics'].append({  'title':    title.strip(),
+                                        'href':     anchors[1]['href'],
+                                        'id':       id,
+                                        'status':   status,
+                                        'author':   author,
+                                        'date':     date,
+                                        'reply':    reply,
+                                        'api_link': '/api/topic/'+board+'/'+reid
+                                        })
+    else:
+        #bbsindex
+        results[u'recommendation'] = []
+        recommendations = tables[10].findAll('tr');
+        for recom in recommendations:
+            results[u'recommendation'].append({ 'title':    recom.findAll('a')[1].string,
+                                                'href':     recom.findAll('a')[1]['href'],
+                                                'author':   recom.findAll('td')[3].string.strip(),
+                                                'board':    recom.findAll('a')[0].string,
+                                                'date':     recom.findAll('td')[2].string.strip()
+                                                })
+    
+        #get districts top10
+        tableIndex = [15,23,26,29,32,35,38,41,44,47,50,53] #normal index, 如果某个区没有十大，需要另外计算index
+        for i in range(len(tableIndex)):
+            #取index,然后循环抽取tr里的条目
+            if i == 0:
+                results['top10'] = []
+            else:
+                results['top10_dis'+str(i)] = []
+                
+            index = tableIndex[i]
+            trs = tables[index].findAll('tr')
+            for tr in trs:
+                anchors = tr.findAll('a')
+                if i == 0:  # i==0时，为十大热门话题，单独处理
+                    results['top10'].append({   'title':    anchors[1].string.strip(),
+                                                'href':     anchors[1]['href'],
+                                                'board':    anchors[0].string.strip(),
+                                                'author':   tr.findAll('td')[2].string.strip()
+                                                    })
+                else:
+                    results['top10_dis'+str(i)].append({ 'title':    anchors[1].string.strip(),
+                                                    'href':     anchors[1]['href'],
+                                                    'board':    anchors[0].string.strip(),
+                                                    'author':   tr.findAll('td')[2].string.strip()
+                                                    })
+    
+#     results[u'pre_page'] = re.findall(',(\d+)\.html',pageLink['href'])[0]
+#     results[u'total_page'] = int(results[u'pre_page']) + page
+#     返回页面数目，总页数（只在首页可以获得），当前页数
+    return (results,{})
+    
+    
+# ------User-------
+@app.route(u'/api/user', methods=[u'GET', u'POST'])
+def api_user():
+    if 'url' in request.values:
+        url = request.values[u'url']
+    if 'userid' in request.values:
+        url = u'bbsqry?userid=%s'%request.values['userid']
+    return user(url=url)
+@api(3600)
+def user(soup):
+    result = {}
+    center = soup.center
+    
+    if len(center(u'table')) == 0:
+        result['error'] = unicode(center)
+        return (result,{})
+    
+    pre = center.pre
+    result['pre'] = unicode(pre)
+    return (result,{})
     
 
-    return (result,{'datetime_tuple':'int','articles':'article'})
-@app.route(u'/api/bbsall.jsonp', methods=[u'GET', u'POST'])
-@app.route(u'/api/bbsall.json', methods=[u'GET', u'POST'])
-@app.route(u'/api/bbsall.xml', methods=[u'GET', u'POST'])
-@app.route(u'/api/bbsall', methods=[u'GET', u'POST'])
+# -----AllBoards--------
+@app.route(u'/api/boards', methods=[u'GET', u'POST'])
 def api_bbsall():
+    '''
+    @/api/boards
+    
+    读取所有版面信息,返回以下对象： ::
+    
+        results ={
+            boards: [
+                {
+                "bm": "sonichen", //bbsMaster
+                "board": "Accounting", 
+                "category": "科学", 
+                "chinese": "会计", 
+                "id": 1, 
+                "link": "bbsdoc,board,Accounting.html", 
+                "api_link": "/api/board/Accounting",
+                "trans": "○"
+                }, ...],
+                count: 395
+            }
+    '''
     if 'url' in request.values:
         url = request.values[u'url']
     else:
@@ -692,7 +838,6 @@ def api_bbsall():
     else:
         format = 'json'
     return bbsall(url=url,format=format)
-
 @api(3600)
 def bbsall(soup):
     result = {}
@@ -712,151 +857,13 @@ def bbsall(soup):
         board[u'chinese'] = chinese[3:]
         board[u'trans'] = chinese[1]
         board[u'bm'] = u'' if tds[4].a == None else tds[4].a
-        
+        board[u'api_link'] = "/api/board/"+board[u'board'].string
         result[u'boards'] .append(board)
     
 
     return (result,{u'boards':u'board'})
-
-@app.route(u'/api/user', methods=[u'GET', u'POST'])
-def api_user():
-    if 'url' in request.values:
-        url = request.values[u'url']
-    if 'userid' in request.values:
-        url = u'bbsqry?userid=%s'%request.values['userid']
-    return user(url=url)
-
-@api(3600)
-def user(soup):
-    result = {}
-    center = soup.center
     
-    if len(center(u'table')) == 0:
-        result['error'] = unicode(center)
-        return (result,{})
-    
-    pre = center.pre
-    result['pre'] = unicode(pre)
-    return (result,{})
-def treehtml(art):
-    replies = []
-    art[u'replies'].sort(key = lambda x:float(x[u'content'][u'datetime_epoch']))
-    for reply in art[u'replies']:
-        replies.append(treehtml(reply))
-    return render_template(u'treeart.html',
-        article=art, replies=replies, 
-        content_lines = u'\n'.join(art[u'content_lines']),
-        baseurl = URLBASE)
 
-def calcscore(art, other, maxp):
-    from difflib import get_close_matches
-    score = 0
-    for line in art[u'reply_lines']:
-        for otherline in (other[u'text_lines']):
-            l1 = len(line)
-            l2 = len(otherline)
-            l = l1 if l1 < l2 else l2
-            if len(set(line).intersection(otherline)) > l/2:
-                score += 1
-    return score
-
-@app.route(u"/tree/<path:url>")
-@app.route(u"/tree")
-def tree(url):
-    url=request.url
-    url=url[url.rfind(u'/')+1:]
-    from time import clock
-    start=clock()
-
-    thread_json,xl = thread(url=url, format=u'raw', callback=u'', pretty=False)
-    threads = []
-    index = 0
-    for art in thread_json[u'articles']:
-        art_json,xl = article(url=art[u'link'], format=u'raw', callback=u'', pretty=False)
-        art_json['text_lines'] = []
-        for line in art_json['content']['text_lines']:
-            while len(line)>80:
-                art_json['text_lines'].append(line[:80])
-                line = line[80:]
-            if len(line.strip()) > 0:
-                art_json['text_lines'].append(line)
-                
-        art_json['reply_lines'] = []
-        for line in art_json['content']['reply_lines']:
-            while len(line)>80:
-                art_json['reply_lines'].append(line[:80])
-                line = line[80:]
-            art_json['reply_lines'].append(line)
-        
-        art_json[u'replies'] = []
-        art_json[u'index'] = index
-        index += 1
-        threads.append(art_json)
-        
-    maxp = len(threads)
-    
-    for art in threads:
-        max_score = 0
-        max_refer = None
-        for other in threads:
-            if other['index'] == art['index']:
-                continue
-            score = calcscore(art, other, maxp)
-            if score > max_score:
-                max_score = score
-                max_refer = other
-        art[u'refer'] = max_refer
-        art[u'score'] = max_score
-        if max_refer != None:
-            max_refer[u'replies'].append(art)
-    
-    for art in threads[1:]:
-        if art[u'refer'] == None:
-            art[u'refer'] = threads[0]
-            threads[0][u'replies'].append(art)
-    
-    end=clock()
-    
-    #ans = []
-    #for art in threads[1:]:
-    #    ans.append('%s -> %s'%(art[u'index'],art[u'refer'][u'index']))
-    #return '<br/>'.join(ans)
-    return render_template('treeyssy.html',treehtml = treehtml(threads[0]),thread = thread_json, time = end - start)
-
-
-
-
-@app.route(u"/bmreason")
-def bmreason():
-    from time import clock
-    start=clock()
-    
-    url = 'bbstfind0?board=BMhome&reid=1333553593'
-    thread_json,xl = thread(url=url, format=u'raw', callback=u'', pretty=False)
-    threads = {}
-    index = 0
-    for art in thread_json[u'articles']:
-        art_json,xl = article(url=art[u'link'], format=u'raw', callback=u'', pretty=False)
-        text = ''.join(art_json['content']['text_lines'])
-        text = ''.join(BS(text).findAll(text = True))
-        names = set( x.lower() for x in filter(
-            lambda userid:not ('error' in user(url=('bbsqry?userid=%s'%userid), format=u'raw')[0])
-            ,re.findall('[a-zA-Z]+',text)))
-
-        author = art_json['content']['author']
-        if author in threads:
-            threads[author].update(names)
-        else:
-            threads[author] = names
-
-    end=clock()
-
-    results = {}
-    for x in threads:
-        if len(threads[x]) != 0:
-            results[x] = threads[x]
-
-    return '\n'.join('%s:%s'%(x,','.join(results[x])) for x in results)
 if __name__ == '__main__':
     app.run()
 #########################################################################
