@@ -1,0 +1,3 @@
+该API为交通大学BBS饮水思源的数据接口，由farseerfc实现主体API架构，现由jiee基于原API架构补充丰富。
+
+todo: ...
