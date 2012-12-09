@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="饮水思源非官方API : python interface to bbs.sjtu.edu.cn" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>饮水思源非官方API</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/jiee/pyssy">View on GitHub</a>
+
+          <h1 id="project_title">饮水思源非官方API</h1>
+          <h2 id="project_tagline">python interface to bbs.sjtu.edu.cn</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/jiee/pyssy/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/jiee/pyssy/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h3>饮水思源非官方API</h3>
+
+<p>本API基于Jiachen Yang所开发的<a href="https://github.com/yssy/pyssy">pyssy</a>，在其基础上逐步完善饮水思源API的开发，目前基本完成API的读取部分，更多工作将在今后空闲期间完成。</p>
+
+<h3>术语约定</h3>
+
+<p>为便于理解api的含义，按以下约定</p>
+
+<ul>
+<li>topic -- 话题是由帖子的发起人产生</li>
+<li>article -- 文章是由用户对话题所进行的回复讨论</li>
+</ul><h3>使用方法</h3>
+
+<ul>
+<li><code>/api/topics</code></li>
+</ul><p>获取论坛首页数据，包括'推荐阅读', '十大热门', '分区十大'，返回json数据如下：</p>
+
+<pre><code>{
+    "recommendation": [
+        {
+            "api_link": "/api/topic/articles/MobileDev/1354974523", 
+            "author": "LuDerek/fcfarseer", 
+            "board": "MobileDev", 
+            "date": "Dec08 21:48:43", 
+            "href": "/bbstcon?board=MobileDev&amp;reid=1354974523&amp;file=M.1354974523.A", 
+            "title": "iPhone/iPad UI自动化测试指南"
+        },... ],
+    "top10": [
+        {
+            "api_link": "/api/topic/articles/LoveBridge/1354982331", 
+            "author": "lazylamb", 
+            "board": "LoveBridge", 
+            "href": "/bbstcon?board=LoveBridge&amp;reid=1354982331", 
+            "title": "这是我的挂牌，也是我的故事"
+        },...],
+    "top10_dis(x)": [
+        {
+            "api_link": "/api/topic/articles/Graduate/1354979397", 
+            "author": "WaiLianer", 
+            "board": "Graduate", 
+            "href": "/bbstcon?board=Graduate&amp;reid=1354979397", 
+            "title": "#阿拉丁神灯#愿望第一弹（真的有华师妹纸啊~）"
+        },...]
+}
+</code></pre>
+
+<hr><ul>
+<li><code>/api/topic/articles/&lt;board_name&gt;/&lt;reid&gt;</code></li>
+</ul><p>获取某个话题的所有讨论文章</p>
+
+<ul>
+<li><code>/api/board/&lt;board_name&gt;[/&lt;articles|topics&gt;]</code></li>
+</ul><p>获取指定版面的文章或者话题</p>
+
+<ul>
+<li><code>/api/boards</code></li>
+</ul><p>获取版面</p>
+
+<ul>
+<li><code>/api/user/&lt;userid&gt;</code></li>
+</ul><p>获取用户信息</p>
+
+<ul>
+<li>
+<code>/api/users/online</code>(Todo)</li>
+</ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">饮水思源非官方API maintained by <a href="https://github.com/jiee">jiee</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
