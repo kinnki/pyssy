@@ -1,4 +1,3 @@
-PI
 本API基于Jiachen Yang所开发的[pyssy](https://github.com/yssy/pyssy)，在其基础上逐步完善饮水思源API的开发，目前基本完成API的读取部分，更多工作将在今后空闲期间完成。
 
 ### 术语约定
@@ -13,31 +12,31 @@ PI
 
 ```
 {
-	    "recommendation": [
+ "recommendation": [
 	            {
-			                "api_link": "/api/topic/articles/MobileDev/1354974523", 
-					            "author": "LuDerek/fcfarseer", 
-						                "board": "MobileDev", 
-								            "date": "Dec08 21:48:43", 
-									                "href": "/bbstcon?board=MobileDev&reid=1354974523&file=M.1354974523.A", 
-											            "title": "iPhone/iPad UI自动化测试指南"
-												            },... ],
-													        "top10": [
-														        {
-																            "api_link": "/api/topic/articles/LoveBridge/1354982331", 
-																	                "author": "lazylamb", 
-																			            "board": "LoveBridge", 
-																				                "href": "/bbstcon?board=LoveBridge&reid=1354982331", 
-																						            "title": "这是我的挂牌，也是我的故事"
-																							            },...],
-																								        "top10_dis(x)": [
-																									        {
-																											            "api_link": "/api/topic/articles/Graduate/1354979397", 
-																												                "author": "WaiLianer", 
-																														            "board": "Graduate", 
-																															                "href": "/bbstcon?board=Graduate&reid=1354979397", 
-																																	            "title": "#阿拉丁神灯#愿望第一弹（真的有华师妹纸啊~）"
-																																		            },...]
+	              "api_link": "/api/topic/articles/MobileDev/1354974523", 
+	              "author": "LuDerek/fcfarseer", 
+		      "board": "MobileDev", 
+		      "date": "Dec08 21:48:43", 
+		      "href": "/bbstcon?board=MobileDev&reid=1354974523&file=M.1354974523.A", 
+		      "title": "iPhone/iPad UI自动化测试指南"
+		      },... ],
+top10": [
+         {
+            "api_link": "/api/topic/articles/LoveBridge/1354982331", 
+            "author": "lazylamb", 
+            "board": "LoveBridge", 
+            "href": "/bbstcon?board=LoveBridge&reid=1354982331", 
+            "title": "这是我的挂牌，也是我的故事"
+           },...],
+"top10_dis(x)": [
+	        {
+	           "api_link": "/api/topic/articles/Graduate/1354979397", 
+                   "author": "WaiLianer", 
+                   "board": "Graduate", 
+	           "href": "/bbstcon?board=Graduate&reid=1354979397", 
+		   "title": "#阿拉丁神灯#愿望第一弹（真的有华师妹纸啊~）"
+		},...]
 }
 ```
 ***
