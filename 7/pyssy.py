@@ -168,12 +168,17 @@ class api(object):
             start = time.clock()
             html,fetch_time = fetch(url, self.timeout)
             end_fetch = time.clock()
+            #lines = len(html.split('\n'))
+            #用一个简单的方法判断页面是否存在
+            if lines < 8 and re.search(u'[不存在|错误]', html):
+                return 'not found'
             
             if modified_since == fetch_time:
                 return Response(status=304)
             
             result, xml_list_names = func(BS(html,'html5lib'))
-            
+            #result[u'lines'] = lines   
+
             roottag = func.__name__
             
             if include and u'articles' in result:
@@ -839,7 +844,31 @@ def user(soup):
         results[u'is_bbs_master'] = False
         
     return (results,{})
+
+@app.route(u'/api/users/online', methods=[u'GET', u'POST'])
+def api_user_online():
+    url = 'bbsufind?search=*'
+    return user_online(url = url)
+def user_online(url = ''):
+    results = {}
+    h = fetch(url, 600)
+    online = re.search(u'(\d+)人', h[0]).group(1)
+    results[u'online'] = online
     
+    results[u'users'] = []
+    trs = re.findall(u'<tr>.*userid=(.*?)>.*?((?:\d+\.){3}\d+)', h[0])
+    for tr in trs:
+        userid, ip = tr
+        results[u'users'].append({
+                                    'userid':   userid,
+                                    'ip':       ip
+                                })
+                                
+    json_results = json.dumps( results,
+                               ensure_ascii = False, sort_keys=True, indent=4 )
+    return Response(json_results, 
+                    content_type='application/json; charset=utf-8')
+
 
 # -----AllBoards--------
 @app.route(u'/api/boards', methods=[u'GET', u'POST'])
