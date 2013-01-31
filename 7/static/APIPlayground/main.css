@@ -1,0 +1,44 @@
+html {
+    background-color: #eeeeee;
+}
+
+body {
+    margin: 0 auto;
+    padding: 2em;
+    max-width: 800px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5em;
+    color: #333333;
+    background-color: #ffffff;
+
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    line-height: 1.3em;
+}
+
+#resultForm {
+    border: 1px solid #333333;
+    padding: 5px;
+    width: 600px;
+    background-color: #000000;
+    color: #FFFFFF;
+    
+}
+
+#resultForm textarea {
+    display: block;
+    border: none;
+    margin: 15px auto 2px auto;
+    width: 590px;
+    height: 280px;
+    background-color: #000000;
+    color: green;
+    font-size: 1.1em;
+}
+
+#resultForm textarea:focus {
+    outline:none;
+}
