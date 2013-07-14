@@ -50,13 +50,14 @@ except:
 import json, re
 import datetime
 import time
-from urllib2 import urlopen
+import cookielib
 
+import urllib, urllib2
 from bs4 import BeautifulSoup as BS
 import html5lib
 
 from flask import (Flask, g, request, abort, redirect,
-                   url_for, render_template, Markup, flash, Response)
+                   url_for, render_template, Markup, flash, Response, jsonify)
 
 from dict2xml import dict2xml
 from iso8601 import parse_date
@@ -73,6 +74,11 @@ URLTHREAD=URLBASE+"bbstfind0?"
 URLARTICLE=URLBASE+"bbscon?"
 URLTHREADALL="bbstcon"
 URLTHREADFIND="bbstfind"
+
+cj = cookielib.CookieJar()
+cookie = urllib2.HTTPCookieProcessor(cj)
+opener = urllib2.build_opener(cookie)
+urllib2.install_opener(opener)
 
 def str2datetime(st):
     if st == None:
@@ -104,7 +110,7 @@ def fetch(url, timeout):
         g.mc.set('time'+url.encode('ascii'), now)
         return (html, now)
     else:
-        return (urlopen(URLBASE + url).read().decode("gbk","ignore"), datetime2str(datetime.datetime.now()))  
+        return (urllib2.urlopen(URLBASE + url).read().decode("gbk","ignore"), datetime2str(datetime.datetime.now()))  
 
 def soupdump(var):
     if isinstance(var,tuple):
@@ -171,7 +177,7 @@ class api(object):
             lines = len(html.split('\n'))
             #用一个简单的方法判断页面是否存在
             if lines < 10 and re.search(u'[不存在|错误]', html):
-                return 'not found'
+                return 'The page does not exist'
             
             if modified_since == fetch_time:
                 return Response(status=304)
@@ -537,7 +543,7 @@ def article(soup):
 
 # -----Topics@Index OR Board--------
 @app.route(u'/api/topics/', methods=[u'GET', u'POST'])
-@app.route(u'/api/Index/topics/', methods=[u'GET', u'POST'])
+@app.route(u'/api/index/topics/', methods=[u'GET', u'POST'])
 @app.route(u'/api/board/<board>/', methods=[u'GET', u'POST'])
 @app.route(u'/api/board/<board>/topics/', methods=[u'GET', u'POST'])
 def rest_topics(board=''):
@@ -1068,6 +1074,288 @@ def bbsall(soup):
     
 
     return (result,{u'boards':u'board'})
+
+# -----Login--------
+@app.route(u'/api/login/', methods=[u'GET', u'POST'])
+def api_login():
+    url = "https://bbs.sjtu.edu.cn/bbslogin"
+    isLogin = False
+    data = {}
+    data['id'] = request.values['user']  #testapi
+    data['pw'] = request.values['password']  #testapi
+    data["submit"] = "login"
+    
+    req = urllib2.Request(url, urllib.urlencode(data))
+    response = urllib2.urlopen(req).read().decode('gb2312','ignore')
+    if re.search(u'frameset', response):
+        return jsonify(isLogin = True, token = "%s_%s_%s" % tuple([x.value for x in cj]))
+    else:
+        return jsonify(isLogin = False, message = "Wrong username or password, or new user waiting for authorizing")
+
+# -----MailLists--------
+@app.route(u'/api/mail/', methods=[u'GET', u'POST'])
+def api_mail():
+    #mail check
+    if 'token' not in request.values:
+        return jsonify( result = "Fail", message = "Please check your login token" )
+    
+    if 'more' in request.values:
+        url = "https://bbs.sjtu.edu.cn/bbsmail?start=" + request.values['more'].split('_')[1]
+    else:
+        url = "https://bbs.sjtu.edu.cn/bbsmail"
+    token = request.values['token'].split('_')
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        }
+                        )
+    response = urllib2.urlopen(req).read().decode('gbk','ignore')
+    soup = BS(response,'html5lib')
+    if re.search(u'ERROR', response):
+        return jsonify({'result': 'fail'}) 
+    
+    table = soup.table
+    
+    results = {}
+    
+    results['mail'] = []
+    unread = 0
+    for tr in table.findAll('tr')[1:]:
+        order = tr.contents[0].string
+        status = tr.contents[2].string
+        if status == 'N':
+            unread = unread + 1
+        sendfrom = tr.contents[3].string.lstrip()
+        date = tr.contents[4].string
+        file, num = re.findall(u'file=(.*)&num=(\d+)', tr.contents[5].a['href'])[0]
+        link = "/api/mail/read?file=%s&num=%s" % (file, num)
+        title = tr.contents[5].a.contents[0]
+        results['mail'].append( {
+                                    'order':    order,
+                                    'status':   status,
+                                    'sendfrom': sendfrom,
+                                    'date':     date,
+                                    'link':     link,
+                                    'title':    title.strip(' /a>(')
+                                })
+    results['unread'] = unread
+    results['total'] = re.findall(u'信件总数: (\d+)封', table.nextSibling.nextSibling.nextSibling.nextSibling)[0]
+    more = re.findall(u'\?start=(\d+)', table.findNextSiblings('a')[2]['href'])
+    if more: 
+        results['more'] = "/api/mail?more=startfrom_" + more[0]
+    else:
+        results['more'] = ''
+        
+    return json.dumps(results,
+                        ensure_ascii = False, sort_keys=True, indent=4)
+        
+# -----NewMail--------
+@app.route(u'/api/mail/new', methods=[u'GET', u'POST'])
+def api_newmail():
+    #mail check
+    if 'token' not in request.values \
+        or 'title' not in request.values \
+        or 'text' not in request.values \
+        or 'touser' not in request.values:
+        return jsonify( result = "Fail", message = "Please check your login token" )
+    
+    url = "https://bbs.sjtu.edu.cn/bbssndmail"
+    data = {}
+    data['title'] = request.values['title']
+    data['text'] = request.values['text']
+    data['userid'] = request.values['touser']
+    data['signature'] = 1
+    token = request.values['token'].split('_')
+    
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        },
+                            data = urllib.urlencode(data)
+                        )
+    response = urllib2.urlopen(req).read().decode('gbk','ignore')
+    if re.search(u'已寄给', response):
+        return jsonify({'result': 'success', 'message': 'success'})
+        
+# -----ReadMail--------
+@app.route(u'/api/mail/read', methods=[u'GET', u'POST'])
+def api_readmail():
+    if 'file' not in request.values \
+    or 'token' not in request.values:
+        return jsonify({ 'result': 'Fail', 'Message': 'Missing parameter' })
+    
+    url = "https://bbs.sjtu.edu.cn/bbsmailcon?file=%s&num=%s" % (request.values['file'], request.values['num'])
+    token = request.values['token'].split('_')
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsmail"
+                                        }
+                        )
+    response = urllib2.urlopen(req).read().decode('gbk', 'ignore')
+    #return response
+    soup = BS(response,'html5lib')
+    pre = soup.table.pre
+    
+    result = {}
+    result['next'] = result['previous'] = ""
+        
+    
+    try:
+        content = pre.contents[0]
+    except:
+        content = ""
+    
+    if content == u'寄信人: ': #包含有寄信人信息的Mail
+        lines = unicode(pre).split("\n")
+        user = pre.a.string
+        
+        title = lines[1][6:]
+        posOfPar = lines[2].find("(")
+        date = pre.contents[2].split("\n")[2][posOfPar+1: -1]
+        ip = lines[3][6: -1]
+        
+        text = lines[5:-2]
+        
+        result['user'] = user
+        result['api_user'] = "/api/user/" + user
+        result['title'] = title
+        result['date'] = date
+        result['ip'] = ip
+        result['text'] = text
+    else: #系统信息不带有寄信人信息
+        result['text'] = content
+            
+    if re.search(u'ERROR', response):
+        return jsonify({'result': 'fail'}) 
+    
+    return jsonify(result)
+    
+# -----NewTopic--------
+@app.route(u'/api/topic/create/', methods=[u'GET', u'POST'])
+def api_newTopic():
+    if  'title' not in request.values \
+        or  'text' not in request.values \
+        or  'token' not in request.values:
+        return jsonify( result = "Fail", message = "Parameters missing" )
+        
+    url = "https://bbs.sjtu.edu.cn/bbssnd"
+    title = request.values['title'].encode('gb2312')
+    text = request.values['text'].encode('gb2312')
+    board = request.values['board']
+    token = request.values['token'].split('_')
+    
+    data = {'board':          board,
+            'title':          title,
+            'text':           text,
+            'file':           '',
+            'reidstr':        '',
+            'reply_to_user':  '',
+            'signatrure':     '1',
+            'autocr':         'on'
+    }
+    
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        },
+                            data = urllib.urlencode(data)
+                        )
+    response = urllib2.urlopen(req).read()
+    if not re.search(u'ERROR', response):
+        return jsonify( result = "Success", message = "Topic has been successfully posted" )
+    else:
+        return  jsonify( result = "Fail", message = "Please check the board name or sth else." )
+
+# -----ReplyTopic--------
+@app.route(u'/api/topic/reply/', methods=[u'GET', u'POST'])
+def api_replyTopic():
+    if  'title' not in request.values \
+        or 'text' not in request.values \
+        or 'file' not in request.values \
+        or 'reidstr' not in request.values \
+        or 'replyto' not in request.values \
+        or 'token' not in request.values:
+        return jsonify( result = "Fail", message = "Parameters missing" )
+        
+    url = "https://bbs.sjtu.edu.cn/bbssnd"
+    title = request.values['title'].encode('gb2312')
+    text = request.values['text'].encode('gb2312')
+    board = request.values['board']
+    file = request.values['file']
+    reid = request.values['reidstr']
+    replyto = request.values['replyto']
+    token = request.values['token'].split('_')
+    
+    data = {'board':          board,
+            'title':          title,
+            'text':           text,
+            'file':           file,
+            'reidstr':        reid,
+            'reply_to_user':  replyto,
+            'signatrure':     '1',
+            'autocr':         'on'
+    }
+    
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        },
+                            data = urllib.urlencode(data)
+                        )
+    response = urllib2.urlopen(req).read()
+    
+    if not re.search(u'ERROR', response):
+        return jsonify( result = "Success", message = "Topic has been successfully posted" )
+    else:
+        return  jsonify( result = "Fail", message = "Please check the board name or sth else, or the topic is not allowed to reply" )    
+    return jsonify( result = "Fail", message = "not login or missing file parameter" )
+    
+# -----EditTopic--------
+@app.route(u'/api/topic/edit/', methods=[u'GET', u'POST'])
+def api_editTopic():
+    if 'board' not in request.values or 'file' not in request.values or 'token' not in request.values:
+        return jsonify( result = "Fail", message = "not login or missing file parameter" )
+        
+    #url = 'https://bbs.sjtu.edu.cn/bbsedit?board=%s&file=%s' % (request.values['board'], request.values['file'])
+    url = "https://bbs.sjtu.edu.cn/bbsedit"
+    token = request.values['token'].split('_')
+    
+    data = {'board':        request.values['board'],
+            'title':        request.values['title'].encode('gb2312'),
+            'text':         request.values['text'].encode('gb2312'),
+            'file':         request.values['file'],
+            'type':         1
+    }
+    
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        },
+                            data = urllib.urlencode(data)
+                        )
+    response = urllib2.urlopen(req).read()
+    if re.search(u'ERROR', response):
+        return jsonify( result = 'Fail', message = 'Check is login' )
+    return  response
+
+# -----DelTopic--------
+@app.route(u'/api/topic/del/', methods=[u'GET', u'POST'])
+def api_delTopic():
+    if 'board' not in request.values or 'file' not in request.values or 'token' not in request.values:
+        return jsonify( result = "Fail", message = "not login or missing file parameter" )
+    
+    url = "https://bbs.sjtu.edu.cn/bbsdel?board=%s&file=%s" % (request.values['board'], request.values['file'])
+    token = request.values['token'].split('_')
+    
+    req = urllib2.Request(  url,
+                            headers = { 'Cookie': "utmpuserid=%s; utmpkey=%s; utmpnum=%s" % (token[2], token[0], token[1]),
+                                        "Referer": "https://bbs.sjtu.edu.cn/bbsleftnew"
+                                        }
+                        )
+    response = urllib2.urlopen(req).read()
+    if re.search(u'ERROR', response):
+        return jsonify( result = 'Fail', message = 'Not login or missing parameters' )
+    return  jsonify( result = 'Success', message = 'Topic deleted.' )
     
 
 if __name__ == '__main__':
