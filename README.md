@@ -39,6 +39,7 @@ top10": [
 		},...]
 }
 ```
+
 ***
 
 * `/api/topic/articles/<board_name>/<reid>`
@@ -57,5 +58,25 @@ top10": [
 
 获取用户信息
 
-* `/api/users/online`(Todo)
+* `/api/users/online`
+
+获取所有在线用户列表
+
+***
+
+* `/api/login`
+
+POST方法，参数：user & password
+若成功登录，返回 token, 使用token可进行帖子编辑、发布以及查看信箱等功能。
+
+* `/api/mail`
+
+查看用户信箱，返回信件列表
+
+* `/api/mail/new`
+
+POST方法, 参数：token, title, text, touser
+
+* `/api/mail/read`
+
 
