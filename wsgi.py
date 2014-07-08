@@ -95,6 +95,7 @@ def fetch(url, timeout):
     #Redis only support String, so convert before/after store
     now = datetime2str(str2datetime(datetime2str(datetime.datetime.now())))
     if timeout > 0 and hasattr(g,'mc'):
+        print url;
         result = g.mc.get(url.encode('ascii'))
         if result:
             result = result.decode("gbk","ignore")
@@ -958,14 +959,14 @@ def user(soup):
         results[u'constellation'] = re.findall(u"天  \[.*>(.*座)", results['all'])[0]
     else:
         results[u'constellation'] = None
-    results[u'lastOnline'], results[u'lastIP'] = re.findall(u"上 次 在.*>(.*)</font>.*从.*?>([\d\.]*)</font>", results['all'])[0]
+    results[u'lastOnline'], results[u'lastIP'] = re.findall(u"上 次 在.*>(.*)</font>.*从.*?>([\d\.]*|[\w\.:]*)</font>", results['all'])[0]
     
     if re.findall(u"目前在线",results['all']):
         results[u'isOnline'] = True
     else:
         results[u'isOnline'] = False
     
-    results[u'life'], results[u'totalArticles'] = re.findall(u"生命力:.*>(\d+)</font>.*文章:.*>(\d+)</font>", unicode(pre))[0]
+    results[u'life'], results[u'totalArticles'] = re.findall(u"生命力:.*>([-]*\d+)</font>.*文章:.*>(\d+)</font>", unicode(pre))[0]
     
     if re.findall(u"职务: \[(.*)\]", unicode(pre)):
         results[u'isBM'] = True
