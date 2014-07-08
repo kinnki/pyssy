@@ -95,7 +95,6 @@ def fetch(url, timeout):
     #Redis only support String, so convert before/after store
     now = datetime2str(str2datetime(datetime2str(datetime.datetime.now())))
     if timeout > 0 and hasattr(g,'mc'):
-        print url;
         result = g.mc.get(url.encode('ascii'))
         if result:
             result = result.decode("gbk","ignore")
