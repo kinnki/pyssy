@@ -1140,8 +1140,9 @@ def api_mail():
                                 })
     results['unread'] = unread
     results['total'] = re.findall(u'信件总数: (\d+)封', table.nextSibling.nextSibling.nextSibling.nextSibling)[0]
-    more = re.findall(u'\?start=(\d+)', table.findNextSiblings('a')[2]['href'])
-    if more: 
+        
+    if len(table.findNextSiblings('a')) > 2: 
+        more = re.findall(u'\?start=(\d+)', table.findNextSiblings('a')[2]['href'])
         results['more'] = "/api/mail?more=startfrom_" + more[0]
     else:
         results['more'] = ''
